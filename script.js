@@ -10,148 +10,140 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    const galleryContainer = document.querySelector('.gallery-slider');
-    const prevBtn = document.querySelector('.gallery-slider-container .slider-prev');
-    const nextBtn = document.querySelector('.gallery-slider-container .slider-next');
-    const dotsContainer = document.querySelector('.gallery-slider-container .slider-dots');
-    const loadingElement = document.querySelector('.gallery-loading');
-    
+    const galleryGrid = document.getElementById('galleryGrid');
     const repoOwner = 'amgeekz';
     const repoName = 'megahjayapvc';
     const galleryFolder = 'galeri';
-    const branch = 'main'; // or 'master' depending on your repo
+    const branch = 'main';
+
+    // Lightbox elements
+    const lightbox = document.createElement('div');
+    lightbox.className = 'lightbox';
+    lightbox.innerHTML = `
+        <div class="lightbox-content">
+            <span class="close-lightbox">&times;</span>
+            <div class="lightbox-media-container"></div>
+            <div class="lightbox-caption"></div>
+        </div>
+    `;
+    document.body.appendChild(lightbox);
 
     async function loadGallery() {
         try {
-            loadingElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memuat galeri...';
-            
-            // Fetch directory contents from GitHub API
-            const response = await fetch(
-                `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${galleryFolder}?ref=${branch}`
-            );
-            
-            if (!response.ok) {
-                throw new Error('Gagal memuat galeri');
-            }
-            
+            // Show loading state
+            galleryGrid.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Memuat galeri...</div>';
+
+            // Fetch media from GitHub
+            const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${galleryFolder}?ref=${branch}`);
             const files = await response.json();
-            const mediaFiles = files.filter(file => {
-                const ext = file.name.split('.').pop().toLowerCase();
-                return ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm'].includes(ext);
-            });
+
+            // Filter and sort media files
+            const mediaFiles = files
+                .filter(file => {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    return ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm'].includes(ext);
+                })
+                .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
 
             if (mediaFiles.length === 0) {
-                throw new Error('Tidak ada media ditemukan');
+                throw new Error('Tidak ada media ditemukan di folder galeri');
             }
 
-            // Clear loading state
-            loadingElement.style.display = 'none';
+            // Create 3x3 grid
+            galleryGrid.innerHTML = '';
+            galleryGrid.style.display = 'grid';
+            galleryGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+            galleryGrid.style.gap = '10px';
 
-            // Create slides and dots
-            mediaFiles.forEach((file, index) => {
-                const slide = document.createElement('div');
-                slide.className = 'gallery-slide';
-                if (index === 0) slide.classList.add('active');
-
+            mediaFiles.slice(0, 9).forEach(file => { // Limit to 9 items for 3x3 grid
                 const ext = file.name.split('.').pop().toLowerCase();
                 const isVideo = ['mp4', 'webm'].includes(ext);
 
+                const item = document.createElement('div');
+                item.className = 'gallery-item';
+                item.dataset.src = file.download_url;
+                item.dataset.type = isVideo ? 'video' : 'image';
+                item.dataset.caption = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+
+                const thumbnail = document.createElement('div');
+                thumbnail.className = 'thumbnail';
+
                 if (isVideo) {
-                    const video = document.createElement('video');
-                    video.src = file.download_url;
-                    video.controls = true;
-                    video.muted = true;
-                    video.playsInline = true;
-                    slide.appendChild(video);
+                    thumbnail.innerHTML = `
+                        <video muted loop playsinline>
+                            <source src="${file.download_url}" type="video/${ext}">
+                        </video>
+                        <div class="play-icon"><i class="fas fa-play"></i></div>
+                    `;
                 } else {
-                    const img = document.createElement('img');
-                    img.src = file.download_url;
-                    img.alt = file.name.replace(/\.[^/.]+$/, ""); // Remove file extension
-                    img.loading = 'lazy';
-                    slide.appendChild(img);
+                    thumbnail.innerHTML = `<img src="${file.download_url}" alt="${file.name}" loading="lazy">`;
                 }
 
-                galleryContainer.appendChild(slide);
-
-                // Create dot indicator
-                const dot = document.createElement('div');
-                dot.className = 'dot';
-                if (index === 0) dot.classList.add('active');
-                dot.addEventListener('click', () => goToSlide(index));
-                dotsContainer.appendChild(dot);
+                item.appendChild(thumbnail);
+                galleryGrid.appendChild(item);
             });
 
-            // Initialize slider controls
-            initSliderControls();
+            // Initialize lightbox
+            initLightbox();
 
         } catch (error) {
-            loadingElement.innerHTML = `<div class="error">${error.message}</div>`;
+            galleryGrid.innerHTML = `<div class="error">${error.message}</div>`;
             console.error('Error loading gallery:', error);
         }
     }
 
-    function initSliderControls() {
-        const slides = document.querySelectorAll('.gallery-slide');
-        const dots = document.querySelectorAll('.gallery-slider-container .dot');
-        let currentSlide = 0;
-        let slideInterval;
+    function initLightbox() {
+        const items = document.querySelectorAll('.gallery-item');
+        const lightboxMedia = document.querySelector('.lightbox-media-container');
+        const lightboxCaption = document.querySelector('.lightbox-caption');
+        const closeBtn = document.querySelector('.close-lightbox');
 
-        function updateSlider() {
-            slides.forEach((slide, index) => {
-                slide.classList.toggle('active', index === currentSlide);
+        items.forEach(item => {
+            item.addEventListener('click', function() {
+                const src = this.dataset.src;
+                const type = this.dataset.type;
+                const caption = this.dataset.caption;
+
+                lightboxMedia.innerHTML = '';
+                lightboxCaption.textContent = caption;
+
+                if (type === 'video') {
+                    const video = document.createElement('video');
+                    video.src = src;
+                    video.controls = true;
+                    video.autoplay = true;
+                    lightboxMedia.appendChild(video);
+                } else {
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.alt = caption;
+                    lightboxMedia.appendChild(img);
+                }
+
+                lightbox.style.display = 'flex';
+                document.body.style.overflow = 'hidden'; // Prevent scrolling
             });
-            
-            dots.forEach((dot, index) => {
-                dot.classList.toggle('active', index === currentSlide);
-            });
-        }
-
-        function goToSlide(index) {
-            currentSlide = (index + slides.length) % slides.length;
-            updateSlider();
-            resetAutoSlide();
-        }
-
-        function resetAutoSlide() {
-            clearInterval(slideInterval);
-            slideInterval = setInterval(() => goToSlide(currentSlide + 1), 5000);
-        }
-
-        // Navigation controls
-        prevBtn.addEventListener('click', () => {
-            goToSlide(currentSlide - 1);
         });
 
-        nextBtn.addEventListener('click', () => {
-            goToSlide(currentSlide + 1);
-        });
-
-        // Auto-slide functionality
-        function startAutoSlide() {
-            slideInterval = setInterval(() => goToSlide(currentSlide + 1), 5000);
-        }
-
-        // Pause on hover
-        galleryContainer.addEventListener('mouseenter', () => {
-            clearInterval(slideInterval);
-        });
-
-        galleryContainer.addEventListener('mouseleave', startAutoSlide);
-
-        // Keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') {
-                goToSlide(currentSlide - 1);
-            } else if (e.key === 'ArrowRight') {
-                goToSlide(currentSlide + 1);
+        closeBtn.addEventListener('click', closeLightbox);
+        lightbox.addEventListener('click', function(e) {
+            if (e.target === lightbox) {
+                closeLightbox();
             }
         });
 
-        // Start auto-slide
-        startAutoSlide();
+        function closeLightbox() {
+            lightbox.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            
+            // Pause any playing videos
+            const videos = lightboxMedia.querySelectorAll('video');
+            videos.forEach(video => {
+                video.pause();
+            });
+        }
     }
 
-    // Start loading the gallery
     loadGallery();
 });
 
