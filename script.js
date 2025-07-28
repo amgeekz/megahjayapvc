@@ -9,61 +9,52 @@ document.addEventListener('DOMContentLoaded', function() {
     initImageModal();
 });
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const galleryGrid = document.getElementById('galleryGrid');
     const repoOwner = 'amgeekz';
     const repoName = 'megahjayapvc';
     const galleryFolder = 'galeri';
     const branch = 'main';
 
-    // Lightbox elements
-    const lightbox = document.createElement('div');
-    lightbox.className = 'lightbox';
-    lightbox.innerHTML = `
-        <div class="lightbox-content">
-            <span class="close-lightbox">&times;</span>
-            <div class="lightbox-media-container"></div>
-            <div class="lightbox-caption"></div>
-        </div>
-    `;
-    document.body.appendChild(lightbox);
-
     async function loadGallery() {
         try {
-            // Show loading state
-            galleryGrid.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Memuat galeri...</div>';
+            galleryGrid.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i> Memuat galeri...
+                </div>
+            `;
 
-            // Fetch media from GitHub
-            const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/contents/${galleryFolder}?ref=${branch}`);
+            const response = await fetch(
+                `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${galleryFolder}?ref=${branch}`,
+                { headers: { 'Accept': 'application/vnd.github.v3+json' } }
+            );
+
+            if (!response.ok) {
+                throw new Error(`Gagal memuat: ${response.status} ${response.statusText}`);
+            }
+
             const files = await response.json();
 
-            // Filter and sort media files
-            const mediaFiles = files
-                .filter(file => {
-                    const ext = file.name.split('.').pop().toLowerCase();
-                    return ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm'].includes(ext);
-                })
-                .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
+            const mediaFiles = files.filter(file => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                return ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm'].includes(ext);
+            });
 
             if (mediaFiles.length === 0) {
                 throw new Error('Tidak ada media ditemukan di folder galeri');
             }
 
-            // Create 3x3 grid
             galleryGrid.innerHTML = '';
-            galleryGrid.style.display = 'grid';
-            galleryGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-            galleryGrid.style.gap = '10px';
 
-            mediaFiles.slice(0, 9).forEach(file => { // Limit to 9 items for 3x3 grid
+            mediaFiles.slice(0, 9).forEach(file => {
                 const ext = file.name.split('.').pop().toLowerCase();
                 const isVideo = ['mp4', 'webm'].includes(ext);
 
-                const item = document.createElement('div');
-                item.className = 'gallery-item';
-                item.dataset.src = file.download_url;
-                item.dataset.type = isVideo ? 'video' : 'image';
-                item.dataset.caption = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'gallery-item';
+                galleryItem.dataset.src = file.download_url;
+                galleryItem.dataset.type = isVideo ? 'video' : 'image';
+                galleryItem.dataset.caption = file.name.replace(/\.[^/.]+$/, '');
 
                 const thumbnail = document.createElement('div');
                 thumbnail.className = 'thumbnail';
@@ -76,73 +67,81 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="play-icon"><i class="fas fa-play"></i></div>
                     `;
                 } else {
-                    thumbnail.innerHTML = `<img src="${file.download_url}" alt="${file.name}" loading="lazy">`;
+                    thumbnail.innerHTML = `
+                        <img src="${file.download_url}" alt="${file.name.replace(/\.[^/.]+$/, '')}" loading="lazy">
+                    `;
                 }
 
-                item.appendChild(thumbnail);
-                galleryGrid.appendChild(item);
+                galleryItem.appendChild(thumbnail);
+                galleryGrid.appendChild(galleryItem);
             });
 
-            // Initialize lightbox
             initLightbox();
-
         } catch (error) {
-            galleryGrid.innerHTML = `<div class="error">${error.message}</div>`;
             console.error('Error loading gallery:', error);
+            galleryGrid.innerHTML = `
+                <div class="error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>${error.message}</p>
+                    <button class="retry-button">Coba Lagi</button>
+                </div>
+            `;
         }
     }
 
     function initLightbox() {
-        const items = document.querySelectorAll('.gallery-item');
-        const lightboxMedia = document.querySelector('.lightbox-media-container');
-        const lightboxCaption = document.querySelector('.lightbox-caption');
+        const lightbox = document.querySelector('.lightbox');
+        const mediaContainer = document.querySelector('.lightbox-media-container');
+        const captionElement = document.querySelector('.lightbox-caption');
         const closeBtn = document.querySelector('.close-lightbox');
 
-        items.forEach(item => {
-            item.addEventListener('click', function() {
+        document.querySelectorAll('.gallery-item').forEach(item => {
+            item.addEventListener('click', function () {
                 const src = this.dataset.src;
                 const type = this.dataset.type;
                 const caption = this.dataset.caption;
 
-                lightboxMedia.innerHTML = '';
-                lightboxCaption.textContent = caption;
+                mediaContainer.innerHTML = '';
+                captionElement.textContent = caption;
 
                 if (type === 'video') {
                     const video = document.createElement('video');
                     video.src = src;
                     video.controls = true;
                     video.autoplay = true;
-                    lightboxMedia.appendChild(video);
+                    video.style.maxWidth = '100%';
+                    mediaContainer.appendChild(video);
                 } else {
                     const img = document.createElement('img');
                     img.src = src;
                     img.alt = caption;
-                    lightboxMedia.appendChild(img);
+                    mediaContainer.appendChild(img);
                 }
 
                 lightbox.style.display = 'flex';
-                document.body.style.overflow = 'hidden'; // Prevent scrolling
+                document.body.style.overflow = 'hidden';
             });
         });
 
         closeBtn.addEventListener('click', closeLightbox);
-        lightbox.addEventListener('click', function(e) {
-            if (e.target === lightbox) {
-                closeLightbox();
-            }
+        lightbox.addEventListener('click', e => {
+            if (e.target === lightbox) closeLightbox();
         });
 
         function closeLightbox() {
             lightbox.style.display = 'none';
             document.body.style.overflow = 'auto';
-            
-            // Pause any playing videos
-            const videos = lightboxMedia.querySelectorAll('video');
-            videos.forEach(video => {
-                video.pause();
-            });
+            const videos = mediaContainer.querySelectorAll('video');
+            videos.forEach(v => v.pause());
         }
     }
+
+    // Retry Button
+    document.addEventListener('click', e => {
+        if (e.target.classList.contains('retry-button')) {
+            loadGallery();
+        }
+    });
 
     loadGallery();
 });
