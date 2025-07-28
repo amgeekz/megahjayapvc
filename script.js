@@ -15,38 +15,64 @@ document.addEventListener('DOMContentLoaded', function () {
     const repoName = 'megahjayapvc';
     const galleryFolder = 'galeri';
     const branch = 'main';
+    let currentPage = 1;
+    const itemsPerPage = 9; // 3x3 grid
+    let allMediaFiles = [];
 
-    async function loadGallery() {
+    // Create load more button
+    const loadMoreContainer = document.createElement('div');
+    loadMoreContainer.className = 'load-more-container';
+    const loadMoreBtn = document.createElement('button');
+    loadMoreBtn.className = 'load-more-btn';
+    loadMoreBtn.textContent = 'Lihat Selengkapnya';
+    loadMoreContainer.appendChild(loadMoreBtn);
+    galleryGrid.parentNode.insertBefore(loadMoreContainer, galleryGrid.nextSibling);
+
+    async function loadGallery(page = 1) {
         try {
-            galleryGrid.innerHTML = `
-                <div class="loading">
-                    <i class="fas fa-spinner fa-spin"></i> Memuat galeri...
-                </div>
-            `;
-
-            const response = await fetch(
-                `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${galleryFolder}?ref=${branch}`,
-                { headers: { 'Accept': 'application/vnd.github.v3+json' } }
-            );
-
-            if (!response.ok) {
-                throw new Error(`Gagal memuat: ${response.status} ${response.statusText}`);
+            if (page === 1) {
+                galleryGrid.innerHTML = `
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i> Memuat galeri...
+                    </div>
+                `;
+                loadMoreBtn.disabled = true;
             }
 
-            const files = await response.json();
+            // Only fetch on first load
+            if (page === 1 || allMediaFiles.length === 0) {
+                const response = await fetch(
+                    `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${galleryFolder}?ref=${branch}`,
+                    { headers: { 'Accept': 'application/vnd.github.v3+json' } }
+                );
 
-            const mediaFiles = files.filter(file => {
-                const ext = file.name.split('.').pop().toLowerCase();
-                return ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm'].includes(ext);
-            });
+                if (!response.ok) {
+                    throw new Error(`Gagal memuat: ${response.status} ${response.statusText}`);
+                }
 
-            if (mediaFiles.length === 0) {
-                throw new Error('Tidak ada media ditemukan di folder galeri');
+                const files = await response.json();
+                allMediaFiles = files.filter(file => {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    return ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm'].includes(ext);
+                });
+
+                if (allMediaFiles.length === 0) {
+                    throw new Error('Tidak ada media ditemukan di folder galeri');
+                }
             }
 
-            galleryGrid.innerHTML = '';
+            // Calculate items to show
+            const startIndex = (page - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const mediaFilesToShow = allMediaFiles.slice(startIndex, endIndex);
 
-            mediaFiles.slice(0, 9).forEach(file => {
+            // Clear only on first load
+            if (page === 1) {
+                galleryGrid.innerHTML = '';
+            }
+
+            // Add items to grid
+            mediaFilesToShow.forEach(file => {
                 const ext = file.name.split('.').pop().toLowerCase();
                 const isVideo = ['mp4', 'webm'].includes(ext);
 
@@ -76,7 +102,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 galleryGrid.appendChild(galleryItem);
             });
 
-            initLightbox();
+            // Update button status
+            const hasMore = (page * itemsPerPage) < allMediaFiles.length;
+            loadMoreBtn.disabled = !hasMore;
+            loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+
+            // Initialize lightbox if first load
+            if (page === 1) {
+                initLightbox();
+            }
         } catch (error) {
             console.error('Error loading gallery:', error);
             galleryGrid.innerHTML = `
@@ -86,6 +120,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <button class="retry-button">Coba Lagi</button>
                 </div>
             `;
+            loadMoreBtn.style.display = 'none';
         }
     }
 
@@ -95,32 +130,34 @@ document.addEventListener('DOMContentLoaded', function () {
         const captionElement = document.querySelector('.lightbox-caption');
         const closeBtn = document.querySelector('.close-lightbox');
 
-        document.querySelectorAll('.gallery-item').forEach(item => {
-            item.addEventListener('click', function () {
-                const src = this.dataset.src;
-                const type = this.dataset.type;
-                const caption = this.dataset.caption;
+        // Use event delegation for gallery items
+        galleryGrid.addEventListener('click', function(e) {
+            const galleryItem = e.target.closest('.gallery-item');
+            if (!galleryItem) return;
 
-                mediaContainer.innerHTML = '';
-                captionElement.textContent = caption;
+            const src = galleryItem.dataset.src;
+            const type = galleryItem.dataset.type;
+            const caption = galleryItem.dataset.caption;
 
-                if (type === 'video') {
-                    const video = document.createElement('video');
-                    video.src = src;
-                    video.controls = true;
-                    video.autoplay = true;
-                    video.style.maxWidth = '100%';
-                    mediaContainer.appendChild(video);
-                } else {
-                    const img = document.createElement('img');
-                    img.src = src;
-                    img.alt = caption;
-                    mediaContainer.appendChild(img);
-                }
+            mediaContainer.innerHTML = '';
+            captionElement.textContent = caption;
 
-                lightbox.style.display = 'flex';
-                document.body.style.overflow = 'hidden';
-            });
+            if (type === 'video') {
+                const video = document.createElement('video');
+                video.src = src;
+                video.controls = true;
+                video.autoplay = true;
+                video.style.maxWidth = '100%';
+                mediaContainer.appendChild(video);
+            } else {
+                const img = document.createElement('img');
+                img.src = src;
+                img.alt = caption;
+                mediaContainer.appendChild(img);
+            }
+
+            lightbox.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         });
 
         closeBtn.addEventListener('click', closeLightbox);
@@ -132,17 +169,35 @@ document.addEventListener('DOMContentLoaded', function () {
             lightbox.style.display = 'none';
             document.body.style.overflow = 'auto';
             const videos = mediaContainer.querySelectorAll('video');
-            videos.forEach(v => v.pause());
+            videos.forEach(v => {
+                v.pause();
+                v.currentTime = 0;
+            });
         }
+
+        // Close with ESC key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && lightbox.style.display === 'flex') {
+                closeLightbox();
+            }
+        });
     }
 
-    // Retry Button
+    // Event listeners
+    loadMoreBtn.addEventListener('click', () => {
+        currentPage++;
+        loadGallery(currentPage);
+    });
+
+    // Retry button
     document.addEventListener('click', e => {
         if (e.target.classList.contains('retry-button')) {
+            currentPage = 1;
             loadGallery();
         }
     });
 
+    // Initial load
     loadGallery();
 });
 
