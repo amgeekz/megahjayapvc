@@ -9,6 +9,67 @@ document.addEventListener('DOMContentLoaded', function() {
     initImageModal();
 });
 
+document.addEventListener('DOMContentLoaded', function() {
+    const galleryGrid = document.getElementById('galleryGrid');
+    const repoOwner = 'amgeekz'; // Ganti dengan username GitHub kamu
+    const repoName = 'megahjayapvc'; // Ganti dengan nama repo
+    const galleryFolder = 'galeri'; // Folder tempat media disimpan
+
+    async function loadGallery() {
+        try {
+            // Fetch daftar file dari GitHub API
+            const response = await fetch(
+                `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${galleryFolder}`
+            );
+            const files = await response.json();
+
+            galleryGrid.innerHTML = '';
+
+            files.forEach(file => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(ext);
+                const isVideo = ['mp4', 'webm'].includes(ext);
+
+                if (isImage || isVideo) {
+                    const item = document.createElement('div');
+                    item.className = 'gallery-item';
+
+                    const mediaContainer = document.createElement('div');
+                    mediaContainer.className = 'media-container';
+
+                    if (isImage) {
+                        const img = document.createElement('img');
+                        img.src = file.download_url;
+                        img.alt = file.name;
+                        img.loading = 'lazy';
+                        mediaContainer.appendChild(img);
+                    } else if (isVideo) {
+                        const video = document.createElement('video');
+                        video.src = file.download_url;
+                        video.controls = true;
+                        video.muted = true;
+                        video.playsInline = true;
+                        mediaContainer.appendChild(video);
+                    }
+
+                    const typeBadge = document.createElement('div');
+                    typeBadge.className = 'media-type';
+                    typeBadge.textContent = isVideo ? 'VIDEO' : 'FOTO';
+
+                    item.appendChild(mediaContainer);
+                    item.appendChild(typeBadge);
+                    galleryGrid.appendChild(item);
+                }
+            });
+        } catch (error) {
+            galleryGrid.innerHTML = '<div class="error">Gagal memuat galeri. Coba refresh halaman.</div>';
+            console.error('Error:', error);
+        }
+    }
+
+    loadGallery();
+});
+
 // Mobile Menu Functionality
 function initMobileMenu() {
     const menuToggle = document.getElementById('mobile-menu');
@@ -96,7 +157,7 @@ function initAdvantageTabs() {
 
 // Animation on Scroll
 function initAnimations() {
-    const animatableElements = document.querySelectorAll('.product-card, .section-title, .advantage-card, .testimonials');
+    const animatableElements = document.querySelectorAll('.product-card, .section-title, .advantage-card, .testimonials, .gallery');
     if (animatableElements.length === 0) return;
     
     // Set initial state
@@ -321,3 +382,4 @@ function initImageModal() {
         }
     });
 }
+
