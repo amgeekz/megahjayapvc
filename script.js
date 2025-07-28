@@ -10,195 +10,219 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Configuration
+    const config = {
+        repoOwner: 'amgeekz',
+        repoName: 'megahjayapvc',
+        galleryFolder: 'galeri',
+        branch: 'main',
+        itemsPerPage: 9, // 3x3 grid
+        supportedFormats: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm']
+    };
+
+    // DOM Elements
     const galleryGrid = document.getElementById('galleryGrid');
-    const repoOwner = 'amgeekz';
-    const repoName = 'megahjayapvc';
-    const galleryFolder = 'galeri';
-    const branch = 'main';
+    const lightbox = document.querySelector('.lightbox');
+    const mediaContainer = document.querySelector('.lightbox-media-container');
+    const captionElement = document.querySelector('.lightbox-caption');
+    const closeBtn = document.querySelector('.close-lightbox');
+
+    // State Management
     let currentPage = 1;
-    const itemsPerPage = 9; // 3x3 grid
     let allMediaFiles = [];
+    let isLoading = false;
 
-    // Create load more button
-    const loadMoreContainer = document.createElement('div');
-    loadMoreContainer.className = 'load-more-container';
-    const loadMoreBtn = document.createElement('button');
-    loadMoreBtn.className = 'load-more-btn';
-    loadMoreBtn.textContent = 'Lihat Selengkapnya';
-    loadMoreContainer.appendChild(loadMoreBtn);
-    galleryGrid.parentNode.insertBefore(loadMoreContainer, galleryGrid.nextSibling);
+    // Initialize Load More Button
+    const loadMoreBtn = createLoadMoreButton();
+    
+    // Initial Load
+    loadGallery();
 
+    // Main Gallery Loader
     async function loadGallery(page = 1) {
+        if (isLoading) return;
+        
         try {
-            if (page === 1) {
-                galleryGrid.innerHTML = `
-                    <div class="loading">
-                        <i class="fas fa-spinner fa-spin"></i> Memuat galeri...
-                    </div>
-                `;
+            isLoading = true;
+            currentPage = page;
+
+            // Show loading state only for first page or empty grid
+            if (page === 1 || galleryGrid.children.length === 0) {
+                showLoadingState();
                 loadMoreBtn.disabled = true;
             }
 
-            // Only fetch on first load
+            // Fetch data if not already loaded
             if (page === 1 || allMediaFiles.length === 0) {
-                const response = await fetch(
-                    `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${galleryFolder}?ref=${branch}`,
-                    { headers: { 'Accept': 'application/vnd.github.v3+json' } }
-                );
-
-                if (!response.ok) {
-                    throw new Error(`Gagal memuat: ${response.status} ${response.statusText}`);
-                }
-
-                const files = await response.json();
-                allMediaFiles = files.filter(file => {
-                    const ext = file.name.split('.').pop().toLowerCase();
-                    return ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm'].includes(ext);
-                });
-
-                if (allMediaFiles.length === 0) {
-                    throw new Error('Tidak ada media ditemukan di folder galeri');
-                }
+                await fetchGalleryData();
             }
 
-            // Calculate items to show
-            const startIndex = (page - 1) * itemsPerPage;
-            const endIndex = startIndex + itemsPerPage;
-            const mediaFilesToShow = allMediaFiles.slice(startIndex, endIndex);
+            // Render gallery items
+            renderGalleryItems(page);
 
-            // Clear only on first load
-            if (page === 1) {
-                galleryGrid.innerHTML = '';
-            }
-
-            // Add items to grid
-            mediaFilesToShow.forEach(file => {
-                const ext = file.name.split('.').pop().toLowerCase();
-                const isVideo = ['mp4', 'webm'].includes(ext);
-
-                const galleryItem = document.createElement('div');
-                galleryItem.className = 'gallery-item';
-                galleryItem.dataset.src = file.download_url;
-                galleryItem.dataset.type = isVideo ? 'video' : 'image';
-                galleryItem.dataset.caption = file.name.replace(/\.[^/.]+$/, '');
-
-                const thumbnail = document.createElement('div');
-                thumbnail.className = 'thumbnail';
-
-                if (isVideo) {
-                    thumbnail.innerHTML = `
-                        <video muted loop playsinline>
-                            <source src="${file.download_url}" type="video/${ext}">
-                        </video>
-                        <div class="play-icon"><i class="fas fa-play"></i></div>
-                    `;
-                } else {
-                    thumbnail.innerHTML = `
-                        <img src="${file.download_url}" alt="${file.name.replace(/\.[^/.]+$/, '')}" loading="lazy">
-                    `;
-                }
-
-                galleryItem.appendChild(thumbnail);
-                galleryGrid.appendChild(galleryItem);
-            });
-
-            // Update button status
-            const hasMore = (page * itemsPerPage) < allMediaFiles.length;
-            loadMoreBtn.disabled = !hasMore;
-            loadMoreBtn.style.display = hasMore ? 'block' : 'none';
-
-            // Initialize lightbox if first load
+            // Initialize lightbox on first load
             if (page === 1) {
                 initLightbox();
             }
+
         } catch (error) {
-            console.error('Error loading gallery:', error);
-            galleryGrid.innerHTML = `
-                <div class="error">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>${error.message}</p>
-                    <button class="retry-button">Coba Lagi</button>
-                </div>
-            `;
-            loadMoreBtn.style.display = 'none';
+            console.error('Gallery Error:', error);
+            showErrorState(error);
+        } finally {
+            isLoading = false;
+            updateLoadMoreButton();
         }
     }
 
+    // Helper Functions
+    function createLoadMoreButton() {
+        const container = document.createElement('div');
+        container.className = 'load-more-container';
+        
+        const button = document.createElement('button');
+        button.className = 'load-more-btn';
+        button.textContent = 'Lihat Selengkapnya';
+        button.addEventListener('click', () => loadGallery(currentPage + 1));
+        
+        container.appendChild(button);
+        galleryGrid.parentNode.insertBefore(container, galleryGrid.nextSibling);
+        
+        return button;
+    }
+
+    async function fetchGalleryData() {
+        const response = await fetch(
+            `https://api.github.com/repos/${config.repoOwner}/${config.repoName}/contents/${config.galleryFolder}?ref=${config.branch}`,
+            { headers: { 'Accept': 'application/vnd.github.v3+json' } }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Failed to load: ${response.status} ${response.statusText}`);
+        }
+
+        const files = await response.json();
+        allMediaFiles = files.filter(file => {
+            const ext = file.name.split('.').pop().toLowerCase();
+            return config.supportedFormats.includes(ext);
+        });
+
+        if (allMediaFiles.length === 0) {
+            throw new Error('No media found in gallery folder');
+        }
+    }
+
+    function renderGalleryItems(page) {
+        const startIndex = (page - 1) * config.itemsPerPage;
+        const endIndex = startIndex + config.itemsPerPage;
+        const mediaFilesToShow = allMediaFiles.slice(startIndex, endIndex);
+
+        // Clear only on first page
+        if (page === 1) {
+            galleryGrid.innerHTML = '';
+        }
+
+        // Create document fragment for better performance
+        const fragment = document.createDocumentFragment();
+
+        mediaFilesToShow.forEach(file => {
+            const galleryItem = createGalleryItem(file);
+            fragment.appendChild(galleryItem);
+        });
+
+        galleryGrid.appendChild(fragment);
+    }
+
+    function createGalleryItem(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const isVideo = ['mp4', 'webm'].includes(ext);
+        const item = document.createElement('div');
+        
+        item.className = 'gallery-item';
+        item.dataset.src = file.download_url;
+        item.dataset.type = isVideo ? 'video' : 'image';
+        item.dataset.caption = file.name.replace(/\.[^/.]+$/, '');
+        
+        item.innerHTML = `
+            <div class="thumbnail">
+                ${isVideo ? `
+                    <video muted loop playsinline>
+                        <source src="${file.download_url}" type="video/${ext}">
+                    </video>
+                    <div class="play-icon"><i class="fas fa-play"></i></div>
+                ` : `
+                    <img src="${file.download_url}" alt="${file.name.replace(/\.[^/.]+$/, '')}" loading="lazy">
+                `}
+            </div>
+        `;
+        
+        return item;
+    }
+
+    function updateLoadMoreButton() {
+        const hasMore = (currentPage * config.itemsPerPage) < allMediaFiles.length;
+        loadMoreBtn.disabled = !hasMore || isLoading;
+        loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+        loadMoreBtn.textContent = isLoading ? 'Memuat...' : 'Lihat Selengkapnya';
+    }
+
+    function showLoadingState() {
+        galleryGrid.innerHTML = `
+            <div class="loading" style="grid-column: 1/-1; text-align:center; padding:2rem;">
+                <i class="fas fa-spinner fa-spin"></i> Memuat galeri...
+            </div>
+        `;
+    }
+
+    function showErrorState(error) {
+        galleryGrid.innerHTML = `
+            <div class="error" style="grid-column: 1/-1; text-align:center; padding:2rem;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>${error.message}</p>
+                <button class="retry-button">Coba Lagi</button>
+            </div>
+        `;
+        loadMoreBtn.style.display = 'none';
+    }
+
+    // Lightbox Functions
     function initLightbox() {
-        const lightbox = document.querySelector('.lightbox');
-        const mediaContainer = document.querySelector('.lightbox-media-container');
-        const captionElement = document.querySelector('.lightbox-caption');
-        const closeBtn = document.querySelector('.close-lightbox');
-
-        // Use event delegation for gallery items
-        galleryGrid.addEventListener('click', function(e) {
-            const galleryItem = e.target.closest('.gallery-item');
-            if (!galleryItem) return;
-
-            const src = galleryItem.dataset.src;
-            const type = galleryItem.dataset.type;
-            const caption = galleryItem.dataset.caption;
-
-            mediaContainer.innerHTML = '';
-            captionElement.textContent = caption;
-
-            if (type === 'video') {
-                const video = document.createElement('video');
-                video.src = src;
-                video.controls = true;
-                video.autoplay = true;
-                video.style.maxWidth = '100%';
-                mediaContainer.appendChild(video);
-            } else {
-                const img = document.createElement('img');
-                img.src = src;
-                img.alt = caption;
-                mediaContainer.appendChild(img);
-            }
-
-            lightbox.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        });
-
+        // Event delegation for gallery items
+        galleryGrid.addEventListener('click', handleGalleryItemClick);
+        
+        // Lightbox controls
         closeBtn.addEventListener('click', closeLightbox);
-        lightbox.addEventListener('click', e => {
-            if (e.target === lightbox) closeLightbox();
-        });
-
-        function closeLightbox() {
-            lightbox.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            const videos = mediaContainer.querySelectorAll('video');
-            videos.forEach(v => {
-                v.pause();
-                v.currentTime = 0;
-            });
-        }
-
-        // Close with ESC key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && lightbox.style.display === 'flex') {
-                closeLightbox();
-            }
-        });
+        lightbox.addEventListener('click', e => e.target === lightbox && closeLightbox());
+        document.addEventListener('keydown', e => e.key === 'Escape' && closeLightbox());
     }
 
-    // Event listeners
-    loadMoreBtn.addEventListener('click', () => {
-        currentPage++;
-        loadGallery(currentPage);
-    });
+    function handleGalleryItemClick(e) {
+        const galleryItem = e.target.closest('.gallery-item');
+        if (!galleryItem) return;
 
-    // Retry button
+        const { src, type, caption } = galleryItem.dataset;
+        
+        mediaContainer.innerHTML = type === 'video' 
+            ? `<video src="${src}" controls autoplay style="max-width:100%"></video>`
+            : `<img src="${src}" alt="${caption}" style="max-width:100%">`;
+        
+        captionElement.textContent = caption;
+        lightbox.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+        lightbox.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        mediaContainer.querySelector('video')?.pause();
+    }
+
+    // Retry button handler
     document.addEventListener('click', e => {
         if (e.target.classList.contains('retry-button')) {
             currentPage = 1;
             loadGallery();
         }
     });
-
-    // Initial load
-    loadGallery();
 });
 
 // Mobile Menu Functionality
