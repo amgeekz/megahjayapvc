@@ -10,63 +10,148 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    const galleryGrid = document.getElementById('galleryGrid');
-    const repoOwner = 'amgeekz'; // Ganti dengan username GitHub kamu
-    const repoName = 'megahjayapvc'; // Ganti dengan nama repo
-    const galleryFolder = 'galeri'; // Folder tempat media disimpan
+    const galleryContainer = document.querySelector('.gallery-slider');
+    const prevBtn = document.querySelector('.gallery-slider-container .slider-prev');
+    const nextBtn = document.querySelector('.gallery-slider-container .slider-next');
+    const dotsContainer = document.querySelector('.gallery-slider-container .slider-dots');
+    const loadingElement = document.querySelector('.gallery-loading');
+    
+    const repoOwner = 'amgeekz';
+    const repoName = 'megahjayapvc';
+    const galleryFolder = 'galeri';
+    const branch = 'main'; // or 'master' depending on your repo
 
     async function loadGallery() {
         try {
-            // Fetch daftar file dari GitHub API
+            loadingElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memuat galeri...';
+            
+            // Fetch directory contents from GitHub API
             const response = await fetch(
-                `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${galleryFolder}`
+                `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${galleryFolder}?ref=${branch}`
             );
+            
+            if (!response.ok) {
+                throw new Error('Gagal memuat galeri');
+            }
+            
             const files = await response.json();
-
-            galleryGrid.innerHTML = '';
-
-            files.forEach(file => {
+            const mediaFiles = files.filter(file => {
                 const ext = file.name.split('.').pop().toLowerCase();
-                const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(ext);
+                return ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'webm'].includes(ext);
+            });
+
+            if (mediaFiles.length === 0) {
+                throw new Error('Tidak ada media ditemukan');
+            }
+
+            // Clear loading state
+            loadingElement.style.display = 'none';
+
+            // Create slides and dots
+            mediaFiles.forEach((file, index) => {
+                const slide = document.createElement('div');
+                slide.className = 'gallery-slide';
+                if (index === 0) slide.classList.add('active');
+
+                const ext = file.name.split('.').pop().toLowerCase();
                 const isVideo = ['mp4', 'webm'].includes(ext);
 
-                if (isImage || isVideo) {
-                    const item = document.createElement('div');
-                    item.className = 'gallery-item';
-
-                    const mediaContainer = document.createElement('div');
-                    mediaContainer.className = 'media-container';
-
-                    if (isImage) {
-                        const img = document.createElement('img');
-                        img.src = file.download_url;
-                        img.alt = file.name;
-                        img.loading = 'lazy';
-                        mediaContainer.appendChild(img);
-                    } else if (isVideo) {
-                        const video = document.createElement('video');
-                        video.src = file.download_url;
-                        video.controls = true;
-                        video.muted = true;
-                        video.playsInline = true;
-                        mediaContainer.appendChild(video);
-                    }
-
-                    const typeBadge = document.createElement('div');
-                    typeBadge.className = 'media-type';
-                    typeBadge.textContent = isVideo ? 'VIDEO' : 'FOTO';
-
-                    item.appendChild(mediaContainer);
-                    item.appendChild(typeBadge);
-                    galleryGrid.appendChild(item);
+                if (isVideo) {
+                    const video = document.createElement('video');
+                    video.src = file.download_url;
+                    video.controls = true;
+                    video.muted = true;
+                    video.playsInline = true;
+                    slide.appendChild(video);
+                } else {
+                    const img = document.createElement('img');
+                    img.src = file.download_url;
+                    img.alt = file.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+                    img.loading = 'lazy';
+                    slide.appendChild(img);
                 }
+
+                galleryContainer.appendChild(slide);
+
+                // Create dot indicator
+                const dot = document.createElement('div');
+                dot.className = 'dot';
+                if (index === 0) dot.classList.add('active');
+                dot.addEventListener('click', () => goToSlide(index));
+                dotsContainer.appendChild(dot);
             });
+
+            // Initialize slider controls
+            initSliderControls();
+
         } catch (error) {
-            galleryGrid.innerHTML = '<div class="error">Gagal memuat galeri. Coba refresh halaman.</div>';
-            console.error('Error:', error);
+            loadingElement.innerHTML = `<div class="error">${error.message}</div>`;
+            console.error('Error loading gallery:', error);
         }
     }
 
+    function initSliderControls() {
+        const slides = document.querySelectorAll('.gallery-slide');
+        const dots = document.querySelectorAll('.gallery-slider-container .dot');
+        let currentSlide = 0;
+        let slideInterval;
+
+        function updateSlider() {
+            slides.forEach((slide, index) => {
+                slide.classList.toggle('active', index === currentSlide);
+            });
+            
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === currentSlide);
+            });
+        }
+
+        function goToSlide(index) {
+            currentSlide = (index + slides.length) % slides.length;
+            updateSlider();
+            resetAutoSlide();
+        }
+
+        function resetAutoSlide() {
+            clearInterval(slideInterval);
+            slideInterval = setInterval(() => goToSlide(currentSlide + 1), 5000);
+        }
+
+        // Navigation controls
+        prevBtn.addEventListener('click', () => {
+            goToSlide(currentSlide - 1);
+        });
+
+        nextBtn.addEventListener('click', () => {
+            goToSlide(currentSlide + 1);
+        });
+
+        // Auto-slide functionality
+        function startAutoSlide() {
+            slideInterval = setInterval(() => goToSlide(currentSlide + 1), 5000);
+        }
+
+        // Pause on hover
+        galleryContainer.addEventListener('mouseenter', () => {
+            clearInterval(slideInterval);
+        });
+
+        galleryContainer.addEventListener('mouseleave', startAutoSlide);
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                goToSlide(currentSlide - 1);
+            } else if (e.key === 'ArrowRight') {
+                goToSlide(currentSlide + 1);
+            }
+        });
+
+        // Start auto-slide
+        startAutoSlide();
+    }
+
+    // Start loading the gallery
     loadGallery();
 });
 
