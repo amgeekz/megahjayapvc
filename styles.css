@@ -881,6 +881,42 @@ nav {
     padding-bottom: 0 !important;
 }
 
+/* Card shell */
+.grw-card{
+  --ring:#e5e7eb; --text:#111827; --muted:#6b7280; --brand:#2563eb; --bg:#ffffff;
+  background:var(--bg); border:1px solid var(--ring); border-radius:18px; padding:16px;
+  box-shadow:0 10px 25px rgba(0,0,0,.06); max-width:980px; margin:24px auto;
+}
+/* Header */
+.grw-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px}
+.grw-title{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.grw-title-text{font-weight:800; font-size:18px; color:var(--text)}
+.grw-badge{font-size:12px; padding:6px 10px; border-radius:999px; background:#f3f4f6; color:#374151}
+.grw-cta{
+  font-size:14px; padding:8px 12px; border-radius:10px; border:1px solid var(--ring);
+  text-decoration:none; color:var(--brand); transition:.2s; background:#fff;
+}
+.grw-cta:hover{transform:translateY(-1px); box-shadow:0 6px 14px rgba(37,99,235,.12)}
+/* Body area */
+.grw-body{opacity:0; transform:translateY(6px); transition:opacity .35s ease, transform .35s ease}
+/* Skeleton */
+.grw-skeleton{display:grid; gap:10px; margin:4px 0 6px}
+.sk-row{height:18px; border-radius:8px; background:linear-gradient(90deg,#eee,#f5f5f5,#eee);
+  animation:pulse 1.2s linear infinite; }
+.sk-row.short{width:60%}
+@keyframes pulse{0%{background-position:-120px 0}100%{background-position:120px 0}}
+/* Small screens */
+@media (max-width:480px){
+  .grw-card{padding:12px}
+  .grw-title-text{font-size:16px}
+  .grw-cta{font-size:13px}
+}
+
+/* (Opsional) Dark mode – otomatis jika body punya .dark */
+.dark .grw-card{--ring:#20242a; --text:#f3f4f6; --muted:#9ca3af; --brand:#60a5fa; --bg:#0f1115; background:var(--bg); border-color:var(--ring)}
+.dark .grw-badge{background:#111827; color:#9ca3af}
+.dark .grw-cta{background:#0f1115; border-color:#1f2937}
+
 /* Footer */
 footer {
     background-color: var(--dark);
