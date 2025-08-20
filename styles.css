@@ -6,7 +6,7 @@
     --light: #f8f9fa;
     --success: #4cc9f0;
     --warning: #f8961e;
-    --toco: #0077FF;
+    --toco: #FFD500;
     --box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     --transition: all 0.3s ease;
 }
@@ -709,21 +709,15 @@ nav {
 
 .btn-toco {
     background-color: var(--toco);
-    color: white;
-    padding: 12px 24px;
-    border-radius: 6px;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0,119,255,0.3);
+    color: black;
+    box-shadow: 0 4px 15px rgba(255,213,0,0.3);
     white-space: nowrap;
-    transition: all 0.3s ease;
 }
 
 .btn-toco:hover {
-    background-color: #005FCC;
+    background-color: #e6bf00;
     transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0,119,255,0.4);
+    box-shadow: 0 8px 20px rgba(255,213,0,0.4);
 }
 
 
