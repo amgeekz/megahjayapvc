@@ -6,7 +6,7 @@
     --light: #f8f9fa;
     --success: #4cc9f0;
     --warning: #f8961e;
-    --shopee: #ee4d2d;
+    --toco: #0077FF;
     --box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     --transition: all 0.3s ease;
 }
@@ -98,7 +98,7 @@ nav {
     width: 100%;
 }
 
-/* Product Slider */
+/* Product Slider Styles */
 .product-slider {
   position: relative;
   height: 100%;
@@ -707,18 +707,25 @@ nav {
     box-shadow: 0 8px 20px rgba(37,211,102,0.4);
 }
 
-.btn-shopee {
-    background-color: var(--shopee);
+.btn-toco {
+    background-color: var(--toco);
     color: white;
-    box-shadow: 0 4px 15px rgba(238,77,45,0.3);
+    padding: 12px 24px;
+    border-radius: 6px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,119,255,0.3);
     white-space: nowrap;
+    transition: all 0.3s ease;
 }
 
-.btn-shopee:hover {
-    background-color: #d63a1a;
+.btn-toco:hover {
+    background-color: #005FCC;
     transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(238,77,45,0.4);
+    box-shadow: 0 8px 20px rgba(0,119,255,0.4);
 }
+
 
 .btn i {
     margin-right: 0.5rem;
